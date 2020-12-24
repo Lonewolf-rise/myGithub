@@ -1,0 +1,25 @@
+.el-header{
+    /* background-color: #bbffaa; */
+    line-height: 100px;
+}
+.el-main{
+    height: 600px;
+    background-color: red;
+}
+.el-row{
+    margin-left: 50px;
+}
+#date-picker{
+    width: 270px;
+    height: 30px;
+}
+/* 弹出层设置背景色  头部 */
+.el-dialog__header {
+  background: #6495ED;
+  line-height: 40px;
+  color: white;
+}
+.el-dialog{
+    border-width: thin;
+    border-color: #6495ED;
+}

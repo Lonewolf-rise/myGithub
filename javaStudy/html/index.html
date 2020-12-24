@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="../css/index.css">
+    <link rel="stylesheet" href="../css/notice.css">
+    <script src="../js/vue.js"></script>
+    <script src="../js/elementUI.js"></script>
+    <script src="../js/axios.js"></script>
+</head>
+
+<body>
+    <div id="notice">
+        <el-container>
+           <el-header height="100px">
+               <el-button type="success" icon="el-icon-plus" @click="addNotice()">添加公告</el-button>
+               <el-button type="success" icon="el-icon-download" @click="exportNotice()">导出公告</el-button>
+               <el-button type="success" icon="el-icon-upload" @click="importNotice()">导入公告</el-button>
+           </el-header>
+           <el-main>
+                <el-table :data="noticeInfo" style="width: 100%;">
+                    <el-table-column prop="notId" label="公告编号" width="180"></el-table-column>
+                    <el-table-column prop="notTitle" label="公告标题" width="180"></el-table-column>
+                    <el-table-column prop="notContent" label="公告内容" width="280"></el-table-column>
+                    <el-table-column prop="notPublishTime" label="公告发布时间" width="280"></el-table-column>
+                    <el-table-column label="操作" width="210" align="center">
+                      <template slot-scope="scope">
+                         <el-button type="danger" icon="el-icon-delete" size="mini" @click="Delete(scope.row.noticeId)">删除</el-button>
+                         <el-button type="success" icon="el-icon-edit" size="mini" @click="Update(scope.row)">修改</el-button>
+                      </template>     
+                    </el-table-column> 
+                </el-table>
+                <!--分页控件-->
+                <el-pagination class="tabListPage" 
+                     background
+                     @size-change="handleSizeChange"  
+                     @current-change="handleCurrentChange"
+                      :current-page="currentPage"
+                      :page-sizes="pageSizes"
+                      :page-size="pageCount"
+                      layout="total, sizes, prev, pager, next, jumper"
+                      :total="totalCount"
+                 >
+          </el-pagination>
+           </el-main>
+        </el-container>
+        <!-- "添加公告"对话框 -->
+        <el-dialog
+          :modal="true"
+          :visible.sync="dialogVisible"
+           width="500px"
+           height="50%"
+          :title="DialogTitle"
+          class="abow_dialog"
+        >
+        <el-form
+           ref="NoticeForm"
+           :rules="noticeRoles"
+           :model="NoticeFormData"
+           label-width="auto"
+           size="small">
+            <el-row>
+              <!-- 公告标题输入框 -->
+              <el-col :span="20">
+                <el-form-item label="公告标题" prop="Title">
+                  <el-input placeholder="请输入公告标题" v-model="NoticeFormData.Title"></el-input>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row>
+                <!-- 公告内容输入框 -->
+                <el-col :span="20">
+                  <el-form-item label="公告内容" prop="Content">
+                    <el-input placeholder="请输入公告内容" type="textarea" rows='10' v-model="NoticeFormData.Content"></el-input>
+                  </el-form-item>
+                </el-col>
+            </el-row>
+            <el-row>
+                <!-- 公告发布时间输入框 -->
+                <el-col :span="20">
+                  <el-form-item label="发布时间" prop="Pubdate">
+                    <el-date-picker 
+                      v-model="NoticeFormData.Pubdate"
+                      type="datetime"
+                      id="date-picker"
+                      placeholder="请选择日期"
+                      format="yyyy-MM-dd HH:mm:ss"
+                     value-format="yyyy-MM-dd HH:mm:ss"
+                    ></el-date-picker>
+                  </el-form-item>
+                </el-col>
+            </el-row>
+            <el-row>
+                <el-col :span="6">
+                   <el-form-item>
+                       <el-button type="success" icon="el-icon-check" @click="addSubmit('NoticeForm')">提交</el-button>
+                   </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                    <el-form-item>
+                        <el-button type="info" icon="el-icon-close" @click="closeDialog()">取消</el-button>
+                    </el-form-item>
+                 </el-col>
+            </el-row>
+         </el-form>
+        </el-dialog>
+        <!-- "添加公告"对话框 结束-->
+
+        <!--"导入Excel"对话框-->
+        <el-dialog
+           :modal="true"
+           :visible.sync="ImportDialogVisible"
+            width="26%"
+            :title="ImportTitle"
+        >
+            <el-form :model="ImportForm">
+               <el-form-item>
+                   <el-upload class="upload-file"
+                      drag
+                      ref="uploadExcel"
+                      action="http://localhost:8080/javastudy/notice/import"
+                      :limit=limitNum
+                      :auto-upload="false"
+                      accept=".xlsx"
+                      :before-upload="beforeUploadFile"
+                      :on-change="fileChange"
+                      :on-exceed="exceedFile"
+                      :on-success="handleSuccess"
+                      :on-error="handleError"
+                      :file-list="fileList"
+                    >  
+                    <i class="el-icon-upload"></i>
+                    <div class="el-upload__text">将文件拖到此处,或<em>点击选择Excel文件</em></div>
+                   </el-upload>
+               </el-form-item>
+               <el-form-item>
+                   <div style="margin-left: 120px;">
+                      <el-button size="small" @click="ImportDialogVisible=false">取消</el-button>
+                      <el-button size="small" type="primary" @click="submitUpload()">立即导入</el-button>
+                   </div>
+               </el-form-item>
+            </el-form>
+        </el-dialog>
+    </div>
+    <script>
+        new Vue({
+            el:'#notice',
+            data:{
+                noticeInfo:[],
+                dialogVisible:false,
+                DialogTitle:'',
+                NoticeFormData:{
+                     Title:'',
+                     Content:'',
+                     Pubdate:''
+                 },
+                noticeRoles:{
+                    Title:[{
+                        required: true, 
+                        message: '标题不能为空', 
+                        trigger: 'blur' 
+                        
+                    }],
+                    Content:[{
+                        required:true,
+                        message:'内容不能为空',
+                        trigger:'blur'
+                    }],
+                    Pubdate:[{
+                        required:true,
+                        message:'时间不能为空',
+                        trigger:'blur'
+                    }]
+                },
+                //以下为导入Excel对话框封装的数据
+                ImportDialogVisible : false,
+                ImportTitle : "导入Excel",
+                limitNum: 1,
+                ImportForm:{
+                    file:''
+                },
+                fileList:[],
+                /* 以下是分页控件绑定的变量 */
+                // 默认显示第几页
+                currentPage:1,
+                // 总条数，根据接口获取数据长度(注意：这里不能为空)
+                totalCount:1,
+                // 个数选择器（可修改）
+                 pageSizes:[5,10,15,20,25,30],
+                // 默认每页显示的条数（可修改）
+                 pageCount:5,
+            },
+            methods:{
+                getNoticeInfo(){
+                    let self = this
+                    axios({
+                          url:"http://localhost:8080/javastudy/notice/page",
+                          methods:"get",
+                          params:{
+                              "CurrentPage":self.currentPage,
+                              "PageSize":self.pageCount
+                        }
+                      }).then(response=>{
+                        self.totalCount = response.data.count 
+                        self.noticeInfo = response.data.data;
+                     })
+                },
+                addNotice(){ //打开"添加公告"对话框
+                    this.dialogVisible = true
+                    this.DialogTitle = "添加公告信息"
+                },
+
+                closeDialog(){ //"添加公告"对话框的"取消"按钮
+                    this.dialogVisible = false
+                },
+                //日期格式转换
+				getLocalTimes:function(ns){
+					var date = new Date(ns);
+					var year = date.getFullYear();
+				    var month = date.getMonth() + 1;
+                    var day = date.getDate();
+                    var h = date.getHours();
+                    var m =date.getMinutes();
+                    var s = date.getSeconds();
+				    month = month < 10 ? '0'+month : month ;
+                    day = day < 10 ? '0'+day : day ;
+                    h = h < 10 ? '0'+h : h;
+                    m = m < 10 ? '0'+m : m;
+                    s = s < 10 ? '0'+s : s;
+				    date = year + '-' + month + '-' + day+" "+h+":"+m+":"+s;
+				    return date;
+				},
+                addSubmit(formName){ //"添加公告"对话框的"提交"按钮
+                    let self = this
+                    this.$refs[formName].validate((valid)=>{ //对表单进行验证
+                        if(valid){
+                            var notice = new URLSearchParams();
+                            notice.append("Title",self.NoticeFormData.Title);
+                            notice.append("Content",self.NoticeFormData.Content);
+                            notice.append("PublishTime",self.getLocalTimes(self.NoticeFormData.Pubdate));
+                            axios.post("http://localhost:8080/javastudy/notice/add",notice)
+                                 .then(response=>{
+                                    if(response.data.code==0){
+                                       self.$message({
+                                           type:"success",
+                                           message:response.data.msg,
+                                           offset:100,
+                                           center:true
+                                        })
+                                       self. getNoticeInfo()
+                                       self.dialogVisible = false
+                                    }else{
+                                       self.$message({
+                                           type:"error",
+                                           message:response.data.msg,
+                                           offset:100,
+                                           center:true
+                                        })
+                                    }
+                                }).catch(function(){ })
+                        }else{
+                            self.$message({
+                                    type:"warning",
+                                    message:"未通过验证",
+                                    offset:100,
+                                    center:true
+                                })
+                        }
+                    })
+                    
+                },
+                exportNotice(){
+                    //这里不能用ajax请求，ajax请求无法弹出下载保存对话框
+                  location.href="http://localhost:8080/javastudy/notice/export";
+                },
+                //以下为导入Excel对话框绑定的函数
+                importNotice(){ //打开导入对话框
+                    let self = this
+                    self.ImportDialogVisible = true
+                },
+                //导入文件超出个数限制时的函数(钩子)
+                exceedFile(files,fileList){
+                    this.$notify.warning({
+                        title:'警告',
+                        message:`只能选择 ${this.limitNum} 个文件，当前共选择了 ${files.length + fileList.length} 个`
+                    })
+                },
+                //文件状态改变时的函数(钩子)
+                fileChange(file,fileList){
+                    this.ImportForm.file = file.raw
+                },
+                //上传文件之前的函数,参数为上传的文件,若返回false或者返回Promise且被reject，则停止上传
+                beforeUploadFile(file){
+                    let extension = file.name.substring(file.name.lastIndexOf('.')+1)
+                    let size = file.size/1024/1024
+                    const isXLSX = file.name.split('.')[1] === 'xlsx'
+                    if(!isXLSX){
+                        this.$notify.warning({
+                            title:'警告',
+                            message:'只能上传Excel2017(即后缀是.xlsx)的文件'
+                        })
+                    }
+                    if(size > 10){
+                        this.$notify.warning({
+                            title:'警告',
+                            message:'文件大小不得超过10M'
+                        })
+                    }
+                },
+                //文件上传成功的函数
+                handleSuccess(res,file,fileList){
+                    let self = this
+                    this.$notify.success({
+                        title:'成功',
+                        message:'文件导入成功'
+                    })
+                    this.getNoticeInfo()
+                    self.ImportDialogVisible = false
+                    self.ImportForm.file = ''
+                    self.fileList = []
+                },
+                // 文件上传失败时的钩子
+                handleError(err, file, fileList) {
+                      this.$notify.error({
+                      title: '错误',
+                      message: `文件导入失败`
+                     });
+                  },
+                  submitUpload(){ //立即上传
+                     let self = this;
+                     if(self.ImportForm.file == ''){
+                        this.$notify.error({
+                          title: '错误',
+                          message: `请选择要导入的文件`
+                        });
+                        return;
+                     }
+                     self.$refs.uploadExcel.submit();
+                  },
+                  /*以下是分页控件绑定的函数*/
+                    handleSizeChange(val) { //每页显示的记录数(下拉列表)发生改变时绑定的函数
+                      console.log(`每页 ${val} 条`);
+                      let self = this;
+                      axios({
+                          url:"http://localhost:8080/javastudy/notice/page",
+                          methods:"get",
+                          params:{
+                              "CurrentPage":self.currentPage,
+                              "PageSize":val
+                        }
+                      }).then(response=>{
+                        self.totalCount = response.data.count 
+                        self.noticeInfo = response.data.data;
+                     })
+                    },
+                    handleCurrentChange(val) { //"当前页"发生改变时绑定的函数
+                      console.log(`当前页: ${val}`);
+                      let self = this;
+                       axios({
+                          url:"http://localhost:8080/javastudy/notice/page",
+                          methods:"get",
+                          params:{
+                           "CurrentPage":val,
+                           "PageSize":self.pageCount
+                           }
+                        }).then(response=>{
+                           self.totalCount = response.data.count 
+                           console.log(self.totalCount)
+                           self.noticeInfo = response.data.data
+                        })
+                    }  
+            },
+            created:function(){
+                this.getNoticeInfo()
+            }
+        })
+    </script>
+</body>
+</html>

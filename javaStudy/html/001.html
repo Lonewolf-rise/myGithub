@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="../css/index.css">
+    <script src="../js/vue.js"></script>
+    <script src="../js/elementUI.js"></script>
+    <script src="../js/axios.js"></script>
+</head>
+<body>
+
+    <div id="app">
+           <el-table :data="tableData" style="width: 80%;">
+               <el-table-column prop="userId" label="编号" width="180"></el-table-column>
+               <el-table-column prop="userName" label="姓名" width="180"></el-table-column>
+               <el-table-column prop="userPwd" label="密码" width="180"></el-table-column>
+               <el-table-column label="操作" width="210" align="center">
+                 <template slot-scope="scope">
+                    <el-button type="danger" icon="el-icon-delete" size="mini" @click="Delete(scope.row.userId)">删除</el-button>
+                    <el-button type="success" icon="el-icon-edit" size="mini" @click="Update(scope.row)">修改</el-button>
+                 </template>     
+            </el-table-column> 
+           </el-table>
+         <!--对话框-->
+         <el-dialog
+          :modal="true"
+          :visible.sync="dialogVisible"
+           width="80%"
+           height="50%"
+          :title="Title"
+      >
+      <el-form :model="formData" :rules="rules" ref="formData" label-width="100px">
+         <el-row>
+             <el-col :span="6">
+                <el-form-item label="用户名" prop="update_userName">
+                   <el-input v-model="formData.update_userName"></el-input>
+                </el-form-item>
+             </el-col>
+         </el-row>
+         <el-row>
+             <el-col :span="6">
+                 <el-form-item label="密码" prop="update_userPwd">
+                    <el-input v-model="formData.update_userPwd"></el-input>
+                 </el-form-item>
+              </el-col>
+         </el-row>
+        <el-row>
+            <el-col :span="3">
+                <el-form-item>
+                    <el-button type="success"  size="mini" @click="UpdateOK('formData')">确定</el-button>
+                </el-form-item>
+             </el-col>
+             <el-col :span="3">
+                <el-form-item>
+                  <el-button type="info"  size="mini">取消</el-button>
+                </el-form-item>
+             </el-col>
+        </el-row>
+      </el-form>
+    </el-dialog>
+    </div>
+    <script>
+        new Vue({
+            el:'#app',
+            data:{
+                tableData:[],
+                formData:{
+                    update_userName:"",
+                    update_userPwd:""
+                },
+                dialogVisible:false,
+                Title:"修改记录",
+                rules:{
+                    update_userName:[{
+                        required:true,
+                        message:'名称不能为空',
+                        trigger:'blur'
+                    }],
+                    update_userPwd:[{
+                        required:true,
+                        message:'密码不能为空',
+                        trigger:'blur'
+                    }]
+            }
+        },
+            methods:{
+                getData(){
+                    let self = this
+                    axios.get("http://localhost:8080/javastudy/admin/all")
+                         .then(response=>{
+                            let temp = JSON.parse(response.data.data) 
+                            self.tableData = temp
+                            console.log("响应信息："+response.data.msg)
+                         })
+                },
+                Delete(val){
+                    let self = this
+                    console.log("ID:"+val)
+                    self.$confirm("确定删除吗?","提示",{
+                        confirmButtonText:"确定",
+                        cancelButtonText:"取消",
+                        type:"warning"
+                    }).then(()=>{  //表示用户点击确定按钮
+                        var params = new URLSearchParams();
+                        params.append("userId",val)
+                        axios.post("http://localhost:8080/javastudy/admin/del",params)
+                             .then(response =>{
+                                 if(response.data.code==0){
+                                     self.$message({
+                                         type:"success",
+                                         message:response.data.msg,
+                                         offset:100,
+                                         center:true
+                                     })
+                                     self.getData()
+                                 }else{
+                                    self.$message({
+                                         type:"error",
+                                         message:response.data.msg,
+                                         offset:100,
+                                         center:true
+                                     })
+                                 }
+                             })
+
+                    }).catch(()=>{ //出现异常后的处理代码
+
+                    })
+                },
+                Update(row){
+                   let self = this
+                   this.dialogVisible = true
+                   self.formData.update_userName = row.userName
+                   self.formData.update_userPwd = row.userPwd
+                },
+                UpdateOK(updateForm){
+                    this.$refs[updateForm].validate((valid)=>{
+                       if(valid){
+                          alert("验证通过")
+                       }else{
+                          alert("验证未通过")
+                       }
+                    })
+                }
+             },
+            created:function(){
+                this.getData()
+            }
+        })
+    </script>
+
+</body>
+</html>
